@@ -11,12 +11,13 @@ import httpx
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Supabase configuratie
-SUPABASE_URL = 'https://utigkgjcyqnrhpndzqhs.supabase.co/rest/v1/subscribers'
-SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0aWdrZ2pjeXFucmhwbmR6cWhzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNjMyMzA1NiwiZXhwIjoyMDUxODk5MDU2fQ.8JovzmGQofC4oC2016P7aa6FZQESF3UNSjUTruIYWbg'
+# Load environment variables
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+N8N_WEBHOOK_URL = os.getenv('N8N_WEBHOOK_URL')
 
-# n8n webhook URL
-N8N_WEBHOOK_URL = "https://primary-production-007c.up.railway.app/webhook-test/c10fba2b-0fbd-471f-9db1-907c1c754802"
+if not all([SUPABASE_URL, SUPABASE_KEY, N8N_WEBHOOK_URL]):
+    raise ValueError("Missing required environment variables. Please set SUPABASE_URL, SUPABASE_KEY, and N8N_WEBHOOK_URL")
 
 app = FastAPI()
 
