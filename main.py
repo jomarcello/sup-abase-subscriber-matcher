@@ -27,17 +27,30 @@ class SignalMatch(BaseModel):
 
 async def get_subscribers(instrument: str, timeframe: str) -> List[dict]:
     """Haal subscribers op uit Supabase die matchen met het instrument en timeframe."""
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{SUPABASE_URL}?select=*&instrument=eq.{instrument}&timeframe=eq.{timeframe}",
-            headers={
-                'apikey': SUPABASE_KEY,
-                'Authorization': f'Bearer {SUPABASE_KEY}',
-                'Content-Type': 'application/json'
-            }
-        )
-        response.raise_for_status()
-        return response.json()
+    try:
+        logger.info(f"SUPABASE_URL: {SUPABASE_URL}")  
+        logger.info(f"Making request to Supabase for {instrument} {timeframe}")
+        
+        url = f"{SUPABASE_URL}?select=*&instrument=eq.{instrument}&timeframe=eq.{timeframe}"
+        logger.info(f"Full URL: {url}")  
+        
+        headers = {
+            'apikey': SUPABASE_KEY,
+            'Authorization': f'Bearer {SUPABASE_KEY}',
+            'Content-Type': 'application/json'
+        }
+        logger.info("Headers prepared (key hidden)")  
+        
+        async with httpx.AsyncClient(verify=False) as client:  
+            response = await client.get(url, headers=headers)
+            logger.info(f"Response status: {response.status_code}")  
+            logger.info(f"Response content: {response.text}")  
+            response.raise_for_status()
+            return response.json()
+    except Exception as e:
+        logger.error(f"Error in get_subscribers: {str(e)}")
+        logger.error(f"Error type: {type(e)}")
+        raise
 
 @app.post("/match-subscribers")
 async def match_subscribers(signal: SignalMatch) -> dict:
