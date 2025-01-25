@@ -33,6 +33,9 @@ logging.basicConfig(
 # Initialize FastAPI
 app = FastAPI()
 
+# Define Supabase API endpoint
+SUPABASE_API_URL = f"{SUPABASE_URL}/rest/v1"
+
 # Conversation states
 MARKET, INSTRUMENT, TIMEFRAME = range(3)
 
@@ -67,7 +70,7 @@ async def save_to_supabase(data: dict) -> dict:
             'Prefer': 'return=minimal'
         }
         
-        url = f"{SUPABASE_URL}/rest/v1/subscribers"
+        url = f"{SUPABASE_API_URL}/subscribers"
         logger.info(f"Attempting to save data to Supabase at: {url}")
         logger.info(f"Request data: {data}")
         logger.info(f"Request headers: {headers}")
@@ -102,7 +105,7 @@ async def query_supabase(instrument: str, timeframe: str) -> List[dict]:
             'Authorization': f'Bearer {SUPABASE_KEY}'
         }
         
-        url = f"{SUPABASE_URL}/rest/v1/subscribers"
+        url = f"{SUPABASE_API_URL}/subscribers"
         logger.info(f"Attempting to query Supabase at: {url}")
         
         async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
