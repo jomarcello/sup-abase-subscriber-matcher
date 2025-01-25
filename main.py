@@ -156,6 +156,21 @@ async def market_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     query = update.callback_query
     await query.answer()
     
+    # Check if this is a back action
+    if query.data == 'back_to_markets':
+        keyboard = [
+            [InlineKeyboardButton("Forex", callback_data='market_forex')],
+            [InlineKeyboardButton("Crypto", callback_data='market_crypto')],
+            [InlineKeyboardButton("Commodities", callback_data='market_commodities')],
+            [InlineKeyboardButton("Indices", callback_data='market_indices')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            "Welcome to SigmaPips! Select a market:",
+            reply_markup=reply_markup
+        )
+        return MARKET
+    
     market = query.data.split('_')[1]
     context.user_data['market'] = market
     
@@ -175,6 +190,7 @@ async def instrument_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     query = update.callback_query
     await query.answer()
     
+    # Check if this is a back action
     if query.data == 'back_to_markets':
         keyboard = [
             [InlineKeyboardButton("Forex", callback_data='market_forex')],
@@ -207,6 +223,7 @@ async def timeframe_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
     
+    # Check if this is a back action
     if query.data == 'back_to_instruments':
         market = context.user_data['market']
         instruments = MARKETS[market]
@@ -260,15 +277,13 @@ conv_handler = ConversationHandler(
     entry_points=[CommandHandler('start', start)],
     states={
         MARKET: [
-            CallbackQueryHandler(market_callback, pattern='^market_')
+            CallbackQueryHandler(market_callback)
         ],
         INSTRUMENT: [
-            CallbackQueryHandler(instrument_callback, pattern='^instrument_'),
-            CallbackQueryHandler(market_callback, pattern='^back_to_markets$')
+            CallbackQueryHandler(instrument_callback)
         ],
         TIMEFRAME: [
-            CallbackQueryHandler(timeframe_callback, pattern='^timeframe_'),
-            CallbackQueryHandler(instrument_callback, pattern='^back_to_instruments$')
+            CallbackQueryHandler(timeframe_callback)
         ]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
