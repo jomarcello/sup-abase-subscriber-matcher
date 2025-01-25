@@ -161,6 +161,7 @@ async def market_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     
     instruments = MARKETS[market]
     keyboard = [[InlineKeyboardButton(instr, callback_data=f'instrument_{instr}')] for instr in instruments]
+    keyboard.append([InlineKeyboardButton("⬅️ Back to Markets", callback_data='back_to_markets')])
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await query.edit_message_text(
@@ -174,10 +175,25 @@ async def instrument_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     query = update.callback_query
     await query.answer()
     
+    if query.data == 'back_to_markets':
+        keyboard = [
+            [InlineKeyboardButton("Forex", callback_data='market_forex')],
+            [InlineKeyboardButton("Crypto", callback_data='market_crypto')],
+            [InlineKeyboardButton("Commodities", callback_data='market_commodities')],
+            [InlineKeyboardButton("Indices", callback_data='market_indices')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            "Welcome to SigmaPips! Select a market:",
+            reply_markup=reply_markup
+        )
+        return MARKET
+    
     instrument = query.data.split('_')[1]
     context.user_data['instrument'] = instrument
     
     keyboard = [[InlineKeyboardButton(tf, callback_data=f'timeframe_{tf}')] for tf in TIMEFRAMES]
+    keyboard.append([InlineKeyboardButton("⬅️ Back to Instruments", callback_data='back_to_instruments')])
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await query.edit_message_text(
@@ -190,6 +206,18 @@ async def timeframe_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     """Handle timeframe selection and save preferences."""
     query = update.callback_query
     await query.answer()
+    
+    if query.data == 'back_to_instruments':
+        market = context.user_data['market']
+        instruments = MARKETS[market]
+        keyboard = [[InlineKeyboardButton(instr, callback_data=f'instrument_{instr}')] for instr in instruments]
+        keyboard.append([InlineKeyboardButton("⬅️ Back to Markets", callback_data='back_to_markets')])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            f"Select {market} instrument:",
+            reply_markup=reply_markup
+        )
+        return INSTRUMENT
     
     timeframe = query.data.split('_')[1]
     context.user_data['timeframe'] = timeframe
