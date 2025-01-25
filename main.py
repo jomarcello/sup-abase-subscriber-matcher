@@ -259,9 +259,17 @@ application = Application.builder().token(TELEGRAM_TOKEN).build()
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler('start', start)],
     states={
-        MARKET: [CallbackQueryHandler(market_callback, pattern='^market_')],
-        INSTRUMENT: [CallbackQueryHandler(instrument_callback, pattern='^instrument_')],
-        TIMEFRAME: [CallbackQueryHandler(timeframe_callback, pattern='^timeframe_')]
+        MARKET: [
+            CallbackQueryHandler(market_callback, pattern='^market_')
+        ],
+        INSTRUMENT: [
+            CallbackQueryHandler(instrument_callback, pattern='^instrument_'),
+            CallbackQueryHandler(market_callback, pattern='^back_to_markets$')
+        ],
+        TIMEFRAME: [
+            CallbackQueryHandler(timeframe_callback, pattern='^timeframe_'),
+            CallbackQueryHandler(instrument_callback, pattern='^back_to_instruments$')
+        ]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
