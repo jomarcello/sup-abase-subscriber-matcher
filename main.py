@@ -7,8 +7,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import httpx
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes, ConversationHandler
+import json
 
 # Load environment variables
 load_dotenv()
@@ -31,6 +32,16 @@ app = FastAPI()
 
 # Conversation states
 MARKET, INSTRUMENT, TIMEFRAME = range(3)
+
+# Market options
+MARKETS = {
+    'forex': ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD'],
+    'crypto': ['BTCUSD', 'ETHUSD', 'XRPUSD', 'DOTUSD', 'ADAUSD'],
+    'commodities': ['XAUUSD', 'XAGUSD', 'WTIUSD', 'BRENTUSD'],
+    'indices': ['US30', 'SPX500', 'NAS100', 'GER40']
+}
+
+TIMEFRAMES = ['1m', '5m', '15m', '30m', '1h', '4h', '1d']
 
 # Data models
 class SignalMatch(BaseModel):
@@ -82,75 +93,84 @@ async def query_supabase(instrument: str, timeframe: str) -> List[dict]:
 # Telegram bot handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Start the conversation and ask for the market."""
+    keyboard = [
+        [InlineKeyboardButton("Forex", callback_data='market_forex')],
+        [InlineKeyboardButton("Crypto", callback_data='market_crypto')],
+        [InlineKeyboardButton("Commodities", callback_data='market_commodities')],
+        [InlineKeyboardButton("Indices", callback_data='market_indices')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        "Welcome! Let's set up your trading preferences.\n\n"
-        "First, which market are you interested in?\n"
-        "Please type either 'forex' or 'crypto'"
+        "Welcome to SigmaPips! Select a market:",
+        reply_markup=reply_markup
     )
     return MARKET
 
-async def market(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Store the market and ask for instrument."""
-    user_market = update.message.text.lower()
-    if user_market not in ['forex', 'crypto']:
-        await update.message.reply_text(
-            "Please enter either 'forex' or 'crypto'"
-        )
-        return MARKET
+async def market_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle market selection and show instruments."""
+    query = update.callback_query
+    await query.answer()
     
-    context.user_data['market'] = user_market
+    market = query.data.split('_')[1]
+    context.user_data['market'] = market
     
-    if user_market == 'forex':
-        message = "Please enter the forex pair you want to trade (e.g., EURUSD, GBPUSD)"
-    else:
-        message = "Please enter the cryptocurrency pair you want to trade (e.g., BTCUSD, ETHUSD)"
+    instruments = MARKETS[market]
+    keyboard = [[InlineKeyboardButton(instr, callback_data=f'instrument_{instr}')] for instr in instruments]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await update.message.reply_text(message)
+    await query.edit_message_text(
+        f"Select {market} instrument:",
+        reply_markup=reply_markup
+    )
     return INSTRUMENT
 
-async def instrument(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Store the instrument and ask for timeframe."""
-    context.user_data['instrument'] = update.message.text.upper()
-    await update.message.reply_text(
-        "What timeframe would you like to trade?\n"
-        "Please enter one of: 1m, 5m, 15m, 30m, 1h, 4h, 1d"
+async def instrument_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle instrument selection and show timeframes."""
+    query = update.callback_query
+    await query.answer()
+    
+    instrument = query.data.split('_')[1]
+    context.user_data['instrument'] = instrument
+    
+    keyboard = [[InlineKeyboardButton(tf, callback_data=f'timeframe_{tf}')] for tf in TIMEFRAMES]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        f"Select timeframe for {instrument}:",
+        reply_markup=reply_markup
     )
     return TIMEFRAME
 
-async def timeframe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Store the timeframe and save all data."""
-    user_timeframe = update.message.text.lower()
-    valid_timeframes = ['1m', '5m', '15m', '30m', '1h', '4h', '1d']
+async def timeframe_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle timeframe selection and save preferences."""
+    query = update.callback_query
+    await query.answer()
     
-    if user_timeframe not in valid_timeframes:
-        await update.message.reply_text(
-            f"Please enter a valid timeframe: {', '.join(valid_timeframes)}"
-        )
-        return TIMEFRAME
+    timeframe = query.data.split('_')[1]
+    context.user_data['timeframe'] = timeframe
     
-    context.user_data['timeframe'] = user_timeframe
-    
-    # Save to Supabase
     subscriber_data = {
         'subscriber_id': str(uuid.uuid4()),
         'market': context.user_data['market'],
         'instrument': context.user_data['instrument'],
-        'timeframe': context.user_data['timeframe'],
+        'timeframe': timeframe,
         'chat_id': str(update.effective_chat.id)
     }
     
     try:
         await save_to_supabase(subscriber_data)
         logger.info(f"Saved subscriber data: {subscriber_data}")
-        await update.message.reply_text(
-            "Perfect! Your preferences have been saved. "
-            "You will now receive signals for "
-            f"{subscriber_data['instrument']} on the {subscriber_data['timeframe']} timeframe."
+        await query.edit_message_text(
+            f"Perfect! Your preferences have been saved.\n\n"
+            f"Market: {subscriber_data['market']}\n"
+            f"Instrument: {subscriber_data['instrument']}\n"
+            f"Timeframe: {subscriber_data['timeframe']}\n\n"
+            "You will receive signals when they match your preferences."
         )
     except Exception as e:
         logger.error(f"Error saving to Supabase: {e}")
-        await update.message.reply_text(
-            "Sorry, there was an error saving your preferences. Please try again later."
+        await query.edit_message_text(
+            "Sorry, there was an error saving your preferences. Please try /start again."
         )
     
     return ConversationHandler.END
@@ -166,9 +186,9 @@ application = Application.builder().token(TELEGRAM_TOKEN).build()
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler('start', start)],
     states={
-        MARKET: [MessageHandler(filters.TEXT & ~filters.COMMAND, market)],
-        INSTRUMENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, instrument)],
-        TIMEFRAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, timeframe)]
+        MARKET: [CallbackQueryHandler(market_callback, pattern='^market_')],
+        INSTRUMENT: [CallbackQueryHandler(instrument_callback, pattern='^instrument_')],
+        TIMEFRAME: [CallbackQueryHandler(timeframe_callback, pattern='^timeframe_')]
     },
     fallbacks=[CommandHandler('cancel', cancel)]
 )
