@@ -13,19 +13,22 @@ import json
 
 # Load environment variables
 load_dotenv()
-SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip('/')  # Remove trailing slash if present
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 TELEGRAM_TOKEN = "7583525993:AAG-T4zPD2LaomugUeyeUe7GvV4Kco_r4eg"
 
 if not all([SUPABASE_URL, SUPABASE_KEY]):
     raise ValueError("Missing required environment variables. Please set SUPABASE_URL and SUPABASE_KEY")
 
+# Log the Supabase URL for debugging
+logger = logging.getLogger(__name__)
+logger.info(f"Initialized with Supabase URL: {SUPABASE_URL}")
+
 # Initialize logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
-logger = logging.getLogger(__name__)
 
 # Initialize FastAPI
 app = FastAPI()
@@ -64,20 +67,26 @@ async def save_to_supabase(data: dict) -> dict:
             'Prefer': 'return=representation'
         }
         
-        async with httpx.AsyncClient() as client:
+        url = f"{SUPABASE_URL}/rest/v1/subscribers"
+        logger.info(f"Attempting to save data to Supabase at: {url}")
+        
+        async with httpx.AsyncClient(verify=False) as client:
             response = await client.post(
-                f"{SUPABASE_URL}/rest/v1/subscribers",
+                url,
                 json=data,
                 headers=headers
             )
+            logger.info(f"Supabase response status: {response.status_code}")
+            logger.info(f"Supabase response: {response.text}")
+            
             if response.status_code == 404:
-                logger.error(f"Supabase URL not found: {SUPABASE_URL}")
+                logger.error(f"Supabase URL not found: {url}")
                 raise Exception("Database connection error")
             response.raise_for_status()
             return response.json()
     except Exception as e:
         logger.error(f"Error saving to Supabase: {str(e)}")
-        logger.error(f"SUPABASE_URL: {SUPABASE_URL}")
+        logger.error(f"Full Supabase URL used: {url}")
         raise
 
 async def query_supabase(instrument: str, timeframe: str) -> List[dict]:
@@ -88,23 +97,30 @@ async def query_supabase(instrument: str, timeframe: str) -> List[dict]:
             'Authorization': f'Bearer {SUPABASE_KEY}'
         }
         
-        async with httpx.AsyncClient() as client:
+        url = f"{SUPABASE_URL}/rest/v1/subscribers"
+        logger.info(f"Attempting to query Supabase at: {url}")
+        
+        async with httpx.AsyncClient(verify=False) as client:
             response = await client.get(
-                f"{SUPABASE_URL}/rest/v1/subscribers",
+                url,
                 params={
+                    'select': '*',
                     'instrument': f'eq.{instrument}',
                     'timeframe': f'eq.{timeframe}'
                 },
                 headers=headers
             )
+            logger.info(f"Supabase response status: {response.status_code}")
+            logger.info(f"Supabase response: {response.text}")
+            
             if response.status_code == 404:
-                logger.error(f"Supabase URL not found: {SUPABASE_URL}")
+                logger.error(f"Supabase URL not found: {url}")
                 raise Exception("Database connection error")
             response.raise_for_status()
             return response.json()
     except Exception as e:
         logger.error(f"Error querying Supabase: {str(e)}")
-        logger.error(f"SUPABASE_URL: {SUPABASE_URL}")
+        logger.error(f"Full Supabase URL used: {url}")
         raise
 
 # Telegram bot handlers
