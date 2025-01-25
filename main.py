@@ -13,12 +13,12 @@ import json
 
 # Load environment variables
 load_dotenv()
-SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip('/')  # Remove trailing slash if present
+SUPABASE_URL = "https://utigkgjcyqnrhpndzqhs.supabase.co"  # Hardcoded Supabase URL
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 TELEGRAM_TOKEN = "7583525993:AAG-T4zPD2LaomugUeyeUe7GvV4Kco_r4eg"
 
-if not all([SUPABASE_URL, SUPABASE_KEY]):
-    raise ValueError("Missing required environment variables. Please set SUPABASE_URL and SUPABASE_KEY")
+if not all([SUPABASE_KEY]):
+    raise ValueError("Missing required environment variables. Please set SUPABASE_KEY")
 
 # Log the Supabase URL for debugging
 logger = logging.getLogger(__name__)
@@ -68,8 +68,7 @@ async def save_to_supabase(data: dict) -> dict:
         }
         
         # Construct URL parts carefully
-        base_url = SUPABASE_URL.rstrip('/')
-        url = f"{base_url}/rest/v1/subscribers"
+        url = "https://utigkgjcyqnrhpndzqhs.supabase.co/rest/v1/subscribers"
         
         logger.info(f"Attempting to save data to Supabase at: {url}")
         logger.info(f"Request data: {data}")
@@ -106,8 +105,7 @@ async def query_supabase(instrument: str, timeframe: str) -> List[dict]:
         }
         
         # Construct URL parts carefully
-        base_url = SUPABASE_URL.rstrip('/')
-        url = f"{base_url}/rest/v1/subscribers"
+        url = "https://utigkgjcyqnrhpndzqhs.supabase.co/rest/v1/subscribers"
         
         logger.info(f"Attempting to query Supabase at: {url}")
         
