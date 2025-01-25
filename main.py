@@ -57,7 +57,6 @@ class TelegramData(BaseModel):
 async def save_to_supabase(data: dict) -> dict:
     """Save data to Supabase using direct HTTP request."""
     try:
-        url = f"{SUPABASE_URL}/rest/v1/subscribers"
         headers = {
             'apikey': SUPABASE_KEY,
             'Authorization': f'Bearer {SUPABASE_KEY}',
@@ -66,28 +65,46 @@ async def save_to_supabase(data: dict) -> dict:
         }
         
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=data, headers=headers)
+            response = await client.post(
+                f"{SUPABASE_URL}/rest/v1/subscribers",
+                json=data,
+                headers=headers
+            )
+            if response.status_code == 404:
+                logger.error(f"Supabase URL not found: {SUPABASE_URL}")
+                raise Exception("Database connection error")
             response.raise_for_status()
             return response.json()
     except Exception as e:
         logger.error(f"Error saving to Supabase: {str(e)}")
+        logger.error(f"SUPABASE_URL: {SUPABASE_URL}")
         raise
 
 async def query_supabase(instrument: str, timeframe: str) -> List[dict]:
     """Query Supabase for matching subscribers using direct HTTP request."""
     try:
-        url = f"{SUPABASE_URL}/rest/v1/subscribers?instrument=eq.{instrument}&timeframe=eq.{timeframe}"
         headers = {
             'apikey': SUPABASE_KEY,
             'Authorization': f'Bearer {SUPABASE_KEY}'
         }
         
         async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers)
+            response = await client.get(
+                f"{SUPABASE_URL}/rest/v1/subscribers",
+                params={
+                    'instrument': f'eq.{instrument}',
+                    'timeframe': f'eq.{timeframe}'
+                },
+                headers=headers
+            )
+            if response.status_code == 404:
+                logger.error(f"Supabase URL not found: {SUPABASE_URL}")
+                raise Exception("Database connection error")
             response.raise_for_status()
             return response.json()
     except Exception as e:
         logger.error(f"Error querying Supabase: {str(e)}")
+        logger.error(f"SUPABASE_URL: {SUPABASE_URL}")
         raise
 
 # Telegram bot handlers
