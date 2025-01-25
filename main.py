@@ -15,7 +15,7 @@ import json
 load_dotenv()
 SUPABASE_URL = "https://utigkgjcyqnrhpndzqhs.supabase.co"  # Hardcoded Supabase URL
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-TELEGRAM_TOKEN = "7583525993:AAG-T4zPD2LaomugUeyeUe7GvV4Kco_r4eg"
+TELEGRAM_TOKEN = "7583525993:AAFp90r7UqCY2KdGufKgHHjjslBy7AnY_Sg"
 
 if not all([SUPABASE_KEY]):
     raise ValueError("Missing required environment variables. Please set SUPABASE_KEY")
