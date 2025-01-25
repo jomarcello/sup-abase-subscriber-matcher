@@ -1,6 +1,7 @@
 import os
 import logging
 import uuid
+import traceback
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -8,7 +9,6 @@ from dotenv import load_dotenv
 import httpx
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
-from supabase import create_client, Client
 
 # Load environment variables
 load_dotenv()
@@ -16,15 +16,15 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 TELEGRAM_TOKEN = "7583525993:AAG-T4zPD2LaomugUeyeUe7GvV4Kco_r4eg"
 
+if not all([SUPABASE_URL, SUPABASE_KEY]):
+    raise ValueError("Missing required environment variables. Please set SUPABASE_URL and SUPABASE_KEY")
+
 # Initialize logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
-
-# Initialize Supabase
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Initialize FastAPI
 app = FastAPI()
@@ -42,6 +42,42 @@ class TelegramData(BaseModel):
     market: str
     instrument: str
     timeframe: str
+
+async def save_to_supabase(data: dict) -> dict:
+    """Save data to Supabase using direct HTTP request."""
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/subscribers"
+        headers = {
+            'apikey': SUPABASE_KEY,
+            'Authorization': f'Bearer {SUPABASE_KEY}',
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=data, headers=headers)
+            response.raise_for_status()
+            return response.json()
+    except Exception as e:
+        logger.error(f"Error saving to Supabase: {str(e)}")
+        raise
+
+async def query_supabase(instrument: str, timeframe: str) -> List[dict]:
+    """Query Supabase for matching subscribers using direct HTTP request."""
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/subscribers?instrument=eq.{instrument}&timeframe=eq.{timeframe}"
+        headers = {
+            'apikey': SUPABASE_KEY,
+            'Authorization': f'Bearer {SUPABASE_KEY}'
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+    except Exception as e:
+        logger.error(f"Error querying Supabase: {str(e)}")
+        raise
 
 # Telegram bot handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -104,7 +140,7 @@ async def timeframe(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     }
     
     try:
-        response = supabase.table('subscribers').insert(subscriber_data).execute()
+        await save_to_supabase(subscriber_data)
         logger.info(f"Saved subscriber data: {subscriber_data}")
         await update.message.reply_text(
             "Perfect! Your preferences have been saved. "
@@ -147,13 +183,7 @@ async def match_subscribers(signal: SignalMatch) -> dict:
         logger.info(f"Finding subscribers for {signal.instrument} {signal.timeframe}")
         
         # Query Supabase for matching subscribers
-        response = supabase.table('subscribers')\
-            .select('*')\
-            .eq('instrument', signal.instrument)\
-            .eq('timeframe', signal.timeframe)\
-            .execute()
-            
-        subscribers = response.data
+        subscribers = await query_supabase(signal.instrument, signal.timeframe)
         logger.info(f"Found {len(subscribers)} matching subscribers")
         
         return {
