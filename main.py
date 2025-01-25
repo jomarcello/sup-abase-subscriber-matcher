@@ -64,26 +64,31 @@ async def save_to_supabase(data: dict) -> dict:
             'apikey': SUPABASE_KEY,
             'Authorization': f'Bearer {SUPABASE_KEY}',
             'Content-Type': 'application/json',
-            'Prefer': 'return=representation'
+            'Prefer': 'return=minimal'
         }
         
         url = f"{SUPABASE_URL}/rest/v1/subscribers"
         logger.info(f"Attempting to save data to Supabase at: {url}")
+        logger.info(f"Request data: {data}")
+        logger.info(f"Request headers: {headers}")
         
-        async with httpx.AsyncClient(verify=False) as client:
+        async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
             response = await client.post(
                 url,
                 json=data,
                 headers=headers
             )
-            logger.info(f"Supabase response status: {response.status_code}")
-            logger.info(f"Supabase response: {response.text}")
             
-            if response.status_code == 404:
-                logger.error(f"Supabase URL not found: {url}")
-                raise Exception("Database connection error")
-            response.raise_for_status()
-            return response.json()
+            logger.info(f"Supabase response status: {response.status_code}")
+            logger.info(f"Supabase response headers: {response.headers}")
+            logger.info(f"Supabase response body: {response.text}")
+            
+            if response.status_code in [200, 201]:
+                return {"success": True}
+            else:
+                logger.error(f"Unexpected status code: {response.status_code}")
+                raise Exception(f"Database error: {response.text}")
+                
     except Exception as e:
         logger.error(f"Error saving to Supabase: {str(e)}")
         logger.error(f"Full Supabase URL used: {url}")
@@ -100,24 +105,27 @@ async def query_supabase(instrument: str, timeframe: str) -> List[dict]:
         url = f"{SUPABASE_URL}/rest/v1/subscribers"
         logger.info(f"Attempting to query Supabase at: {url}")
         
-        async with httpx.AsyncClient(verify=False) as client:
+        async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
             response = await client.get(
                 url,
+                headers=headers,
                 params={
                     'select': '*',
                     'instrument': f'eq.{instrument}',
                     'timeframe': f'eq.{timeframe}'
-                },
-                headers=headers
+                }
             )
-            logger.info(f"Supabase response status: {response.status_code}")
-            logger.info(f"Supabase response: {response.text}")
             
-            if response.status_code == 404:
-                logger.error(f"Supabase URL not found: {url}")
-                raise Exception("Database connection error")
-            response.raise_for_status()
-            return response.json()
+            logger.info(f"Supabase response status: {response.status_code}")
+            logger.info(f"Supabase response headers: {response.headers}")
+            logger.info(f"Supabase response body: {response.text}")
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.error(f"Unexpected status code: {response.status_code}")
+                raise Exception(f"Database error: {response.text}")
+                
     except Exception as e:
         logger.error(f"Error querying Supabase: {str(e)}")
         logger.error(f"Full Supabase URL used: {url}")
