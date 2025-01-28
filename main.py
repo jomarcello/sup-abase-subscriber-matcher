@@ -101,13 +101,16 @@ async def query_supabase(instrument: str, timeframe: str) -> List[dict]:
     try:
         headers = {
             'apikey': SUPABASE_KEY,
-            'Authorization': f'Bearer {SUPABASE_KEY}'
+            'Authorization': f'Bearer {SUPABASE_KEY}',
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
         }
         
         # Construct URL parts carefully
-        url = "https://utigkgjcyqnrhpndzqhs.supabase.co/rest/v1/subscribers"
+        url = f"{SUPABASE_URL}/rest/v1/subscribers"
         
         logger.info(f"Attempting to query Supabase at: {url}")
+        logger.info(f"Looking for instrument: {instrument}, timeframe: {timeframe}")
         
         async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
             response = await client.get(
@@ -115,8 +118,7 @@ async def query_supabase(instrument: str, timeframe: str) -> List[dict]:
                 headers=headers,
                 params={
                     'select': '*',
-                    'instrument': f'eq.{instrument}',
-                    'timeframe': f'eq.{timeframe}'
+                    'and': f'(instrument.eq.{instrument},timeframe.eq.{timeframe})'
                 }
             )
             
