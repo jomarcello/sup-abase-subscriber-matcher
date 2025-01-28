@@ -30,6 +30,18 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+# Store logs in memory
+log_messages = []
+
+class LogHandler(logging.Handler):
+    def emit(self, record):
+        log_messages.append(self.format(record))
+        if len(log_messages) > 1000:  # Keep only last 1000 messages
+            log_messages.pop(0)
+
+# Add custom handler
+logger.addHandler(LogHandler())
+
 # Initialize FastAPI
 app = FastAPI()
 
@@ -111,6 +123,7 @@ async def query_supabase(instrument: str, timeframe: str) -> List[dict]:
         
         logger.info(f"Attempting to query Supabase at: {url}")
         logger.info(f"Looking for instrument: {instrument}, timeframe: {timeframe}")
+        logger.info(f"Using headers: {headers}")
         
         async with httpx.AsyncClient(verify=False, timeout=30.0) as client:
             response = await client.get(
@@ -127,14 +140,18 @@ async def query_supabase(instrument: str, timeframe: str) -> List[dict]:
             logger.info(f"Supabase response body: {response.text}")
             
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                logger.info(f"Successfully retrieved {len(data)} subscribers")
+                return data
             else:
                 logger.error(f"Unexpected status code: {response.status_code}")
+                logger.error(f"Response body: {response.text}")
                 raise Exception(f"Database error: {response.text}")
                 
     except Exception as e:
         logger.error(f"Error querying Supabase: {str(e)}")
         logger.error(f"Full Supabase URL used: {url}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         raise
 
 # Telegram bot handlers
@@ -318,6 +335,15 @@ async def match_subscribers(signal: SignalMatch) -> dict:
         logger.error(f"Error matching subscribers: {str(e)}")
         logger.error(f"Error traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/logs")
+async def get_logs():
+    """Get the last 100 log messages."""
+    try:
+        return {"logs": "\n".join(log_messages[-100:])}
+    except Exception as e:
+        logger.error(f"Error reading logs: {str(e)}")
+        return {"logs": f"Error reading logs: {str(e)}"}
 
 # Start bot polling in the background
 @app.on_event("startup")
