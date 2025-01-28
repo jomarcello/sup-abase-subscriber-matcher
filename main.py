@@ -302,14 +302,14 @@ async def match_subscribers(signal: SignalMatch) -> dict:
         subscribers = await query_supabase(signal.instrument, signal.timeframe)
         logger.info(f"Found {len(subscribers)} matching subscribers")
         
+        # Extract chat IDs from subscribers
+        chat_ids = [sub["chat_id"] for sub in subscribers]
+        logger.info(f"Extracted {len(chat_ids)} chat IDs")
+        
         return {
             "status": "success",
             "message": "Subscribers matched successfully",
-            "data": {
-                "match_info": signal.dict(),
-                "subscribers": subscribers,
-                "subscriber_count": len(subscribers)
-            }
+            "chat_ids": chat_ids
         }
         
     except Exception as e:
