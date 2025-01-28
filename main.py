@@ -315,14 +315,14 @@ application.add_handler(conv_handler)
 async def match_subscribers(signal: SignalMatch) -> dict:
     """Match a trading signal with subscribers."""
     try:
-        logger.info(f"Finding subscribers for {signal.instrument} {signal.timeframe}")
+        logger.info(f"Matching signal: {signal.dict()}")
         
-        # Query Supabase for matching subscribers
+        # Get matching subscribers from Supabase
         subscribers = await query_supabase(signal.instrument, signal.timeframe)
         logger.info(f"Found {len(subscribers)} matching subscribers")
         
-        # Extract chat IDs from subscribers
-        chat_ids = [sub["chat_id"] for sub in subscribers]
+        # Extract chat IDs
+        chat_ids = [sub["chat_id"] for sub in subscribers if "chat_id" in sub]
         logger.info(f"Extracted {len(chat_ids)} chat IDs")
         
         return {
@@ -333,7 +333,7 @@ async def match_subscribers(signal: SignalMatch) -> dict:
         
     except Exception as e:
         logger.error(f"Error matching subscribers: {str(e)}")
-        logger.error(f"Error traceback: {traceback.format_exc()}")
+        logger.error(f"Full error traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/logs")
